@@ -23,8 +23,8 @@ Ensure you have the following installed:
 1. Clone the repository:
 
     ```bash
-    git clone https://github.com/your-repo-url.git
-    cd your-repo-url
+    git clone https://github.com/mycyg/R-API.git
+    cd R-API
     ```
 
 2. Create a Dockerfile and `run_r_script.sh` as described in this guide (they are also provided in this repository).
