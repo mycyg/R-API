@@ -1,0 +1,51 @@
+# 使用官方R基础镜像
+FROM r-base:latest
+
+# 安装系统依赖
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libcurl4-openssl-dev \
+    libssl-dev \
+    libxml2-dev \
+    libfontconfig1-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# 安装Bioconductor管理器
+RUN R -e "install.packages('BiocManager', repos='https://cloud.r-project.org/')"
+
+# 安装所需的R包
+RUN R -e "install.packages(c(
+    'ggplot2',
+    'ggpubr',
+    'plotly',
+    'dplyr',
+    'tidyr',
+    'data.table',
+    'shiny',
+    'survival',
+    'caret',
+    'randomForest',
+    'glmnet',
+    'lattice',
+    'ggfortify',
+    'ComplexHeatmap',
+    'cowplot',
+    'gridExtra',
+    'knitr',
+    'rmarkdown'
+    ), repos='https://cloud.r-project.org/')"
+
+# 安装Bioconductor包
+RUN R -e "BiocManager::install(c('limma', 'edgeR', 'DESeq2'), ask=FALSE)"
+
+# 创建一个非root用户以增强安全性
+RUN useradd -m ruser
+
+# 设置工作目录
+WORKDIR /home/ruser
+
+# 切换到非root用户
+USER ruser
+
+# 设置入口点为Rscript
+ENTRYPOINT ["Rscript"]
