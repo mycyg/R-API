@@ -1,126 +1,103 @@
+# R-API
 
-# R Script Execution API with Docker and Flask
+一个基于Python Flask和Docker的R代码执行服务。用户可以通过HTTP端点提交R代码，服务器将在独立的Docker容器中执行代码，并返回执行结果及生成的文件URL。
 
-This repository provides a Flask API that allows users to execute R scripts with Docker. The API supports file inputs via URLs, executes R code, and returns the result as a downloadable file or image.
+## 功能
 
-## Features
+- 接收用户提交的R代码并执行。
+- 在独立的Docker容器中执行代码，确保环境隔离和安全性。
+- 返回代码执行的输出结果。
+- 提供生成的文件以URL形式下载。
+- 快速使用Docker部署。
 
-- **File Input via URL**: Users can submit file URLs (e.g., CSV files) for processing.
-- **R Script Execution**: Users can send R code to be executed on the provided file.
-- **Output as Downloadable File**: Generated images or other output files are returned as downloadable links.
-- **Docker Integration**: The R script is executed inside a Docker container with all required dependencies pre-installed.
+## 项目结构
 
-## Prerequisites
+```
+r-api/
+├── app.py
+├── requirements.txt
+├── Dockerfile
+├── Dockerfile.rexecutor
+├── output_files/
+├── README.md
+└── .gitignore
+```
 
-Ensure you have the following installed:
+## 安装和使用
 
-- **Docker**
-- **Python 3**
-- **Flask**
+### 前提条件
 
-## Installation
+- [Docker](https://www.docker.com/get-started) 已安装并运行。
+- [Python 3.9](https://www.python.org/downloads/) 及以上版本。
+- [Git](https://git-scm.com/downloads) 已安装。
 
-1. Clone the repository:
-
-    ```bash
-    git clone https://github.com/mycyg/R-API.git
-    cd R-API
-    ```
-
-2. Create a Dockerfile and `run_r_script.sh` as described in this guide (they are also provided in this repository).
-
-3. Build the Docker image:
-
-    ```bash
-    docker build -t r-script-runner .
-    ```
-
-4. Install the Python dependencies:
-
-    ```bash
-    pip install flask requests
-    ```
-
-## Usage
-
-### Start the Flask Application
-
-Run the following command to start the Flask API server:
+### 克隆仓库
 
 ```bash
-python app.py
+git clone https://github.com/mycyg1994/r-api.git
+cd r-api
 ```
 
-The API will be accessible at `http://127.0.0.1:5000`.
-
-### API Request Structure
-
-You can send a `POST` request to `http://127.0.0.1:5000/run-r` with the following parameters:
-
-- `file_url`: URL to the file (e.g., a CSV file) to be processed by the R code.
-- `code`: R code that processes the file. The R code can generate images, process data, and so on.
-
-### Example Request
-
-Here is an example using `curl`:
+### 构建R执行器镜像
 
 ```bash
-curl -X POST http://127.0.0.1:5000/run-r \
-    -F 'file_url=http://example.com/data.csv' \
-    -F 'code=library(readr); data <- read_csv("static/input_<unique_id>.csv"); print(data)'
+docker build -t my-r-executor:latest -f Dockerfile.rexecutor .
 ```
 
-### Example Response
+### 构建Flask应用镜像
 
-- If the R code generates an image, the API will return a JSON response containing a download link:
-
-    ```json
-    {
-        "download_link": "http://127.0.0.1:5000/static/output_<unique_id>.png"
-    }
-    ```
-
-- If the R code generates text output, the response will contain the printed output of the R script:
-
-    ```json
-    {
-        "output": "Printed output from the R script"
-    }
-    ```
-
-## Project Structure
-
-```
-.
-├── app.py                    # Flask API logic
-├── Dockerfile                # Dockerfile to create the R environment
-├── run_r_script.sh           # Shell script to run R code inside Docker
-└── static/                   # Folder where output files will be stored
+```bash
+docker build -t python-r-flask-app .
 ```
 
-- **`app.py`**: Flask API logic that handles file downloads, R script execution, and returns the results.
-- **`Dockerfile`**: Defines the R environment with necessary dependencies installed (e.g., `readr`, `ggplot2`).
-- **`run_r_script.sh`**: Script that runs inside the Docker container to execute the provided R code.
-- **`static/`**: Directory where generated files (e.g., images) are stored for download.
+### 运行Flask应用容器
 
-## How It Works
+**注意**：此操作需要将主机的Docker socket挂载到容器内，存在安全风险。请确保在受信任的环境中使用。
 
-1. **File Input**: The user submits a URL that points to a file (e.g., a CSV file) and provides R code to process it.
-2. **File Download**: The Flask server downloads the file from the provided URL.
-3. **Docker Execution**: The R code and the downloaded file are passed to a Docker container, where the code is executed.
-4. **Return Output**: If the R code generates an image or file, it is saved to the `static/` directory, and a download link is provided in the API response.
+```bash
+docker run -d -p 8000:8000 \
+    --name python-r-flask-app \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    python-r-flask-app
+```
 
-## Example Use Case
+### 测试API
 
-You can use this API to automate data analysis, generate reports, or visualize data using R. For example, a user could submit a CSV file link and R code that generates a plot. The API will return the plot as a downloadable image.
+使用 `curl` 提交R代码：
 
-## Notes
+```bash
+curl -X POST \
+     -H "Content-Type: text/plain" \
+     --data 'png(filename="plot.png"); plot(cars); dev.off(); print("绘图完成")' \
+     http://localhost:8000/execute
+```
 
-- **Security Considerations**: Ensure that the API is properly secured when deployed in a production environment. R code execution can potentially be dangerous, so validation or sandboxing of code execution is recommended.
-- **File Size**: Depending on the size of the file submitted, ensure that the server has enough storage space to handle large data files.
+**预期响应**：
 
-## License
+```json
+{
+  "output": "[1] \"绘图完成\"\n",
+  "files": ["http://localhost:8000/files/<exec_id>/plot.png"]
+}
+```
 
-This project is licensed under the MIT License.
+然后，访问返回的文件URL即可下载生成的图片。
+
+## 安全注意事项
+
+- **代码执行风险**：执行用户提交的任意代码存在潜在风险。建议在受控和隔离的环境中运行，并仅允许可信用户访问。
+- **Docker Socket暴露风险**：将主机的Docker socket挂载到容器内允许容器内的应用完全控制主机的Docker daemon。这是一种高风险操作。请确保在受信任的环境中使用，或考虑使用更安全的隔离方法（如Docker-in-Docker）。
+- **资源限制**：合理设置Docker容器的资源限制，防止滥用。
+- **网络隔离**：通过禁用容器内的网络访问，进一步限制潜在的恶意活动。
+- **代码安全检查**：加强代码的安全检查，防止执行危险函数或操作。
+
+## 贡献
+
+欢迎贡献！请提交Pull Request或创建Issue以讨论改进建议。
+
+## 许可证
+
+本项目采用MIT许可证。详情请参见 [LICENSE](LICENSE) 文件。
+
 ```
 
