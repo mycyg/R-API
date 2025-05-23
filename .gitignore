@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.env
+.env
+venv/
+env/
+ENV/
+
+# Docker
+.dockerignore
+docker-compose.yml
+docker-compose.override.yml
+
+# Application specific
+config.py
+output_files/
